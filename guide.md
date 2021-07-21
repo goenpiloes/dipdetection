@@ -9,7 +9,7 @@
 ## Checklist of tools.py
 - [ ] function transmit: generate a modulated symbols
 - [ ] function receive: return the symbols that has been added by gaussian noise
-- [ ] function detect: run the DIP algorithm to detect the algorithm
+- [ ] function detect: run the DIP algorithm to detect the symbols
 - [ ] function SER: Compare it with true x
 - [ ] Need more functions?
 - [ ] Debugging
