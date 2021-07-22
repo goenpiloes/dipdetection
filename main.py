@@ -1,78 +1,134 @@
 import os, sys, glob
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
 from tools import *
 import numpy as np
 import torch
+from torch import optim
 import time
 from models import *
+torch.backends.cudnn.enabled = True
+torch.backends.cudnn.benchmark = True
 
-def run(batch_size, ):
+
+def run(num_iter=10000, batch_size=100000, Nt=3, Nr=2, M=16, GD_lr=0.001, SNR_dB=10, results_dir=None, datasets_dir=None, seed=42):
     # Generate X, Y, H using random function or from dataset
-    (X, Y, H) = generate(batch_size=10, Nt=3, Nr=2, M=16, SNR_dB=10, seed=42)
-    # (X, Y, H) = pd.read
+    (X, Y, H) = generate(batch_size, Nt, Nr, M, SNR_dB, seed, rootdir=datasets_dir)
+    # (X, Y, H) = pd.read_excel('users.xlsx', sheet_name = [0,1,2])
 
     # Create model G and random noise input z
-    G = skip(3, 3,
-             num_channels_down=[16, 32, 64, 128, 128],
-             num_channels_up=[16, 32, 64, 128, 128],#[16, 32, 64, 128, 128],
+    G = skip(1, 1,
+             num_channels_down=[1, 2, 2, 4, 4],
+             num_channels_up=[1, 2, 2, 4, 4],#[16, 32, 64, 128, 128],
              num_channels_skip=[0, 0, 0, 0, 0],
-             filter_size_up=3, filter_size_down=3, filter_skip_size=1,
+             filter_size_up=2, filter_size_down=2, filter_skip_size=1,
              upsample_mode='nearest',  # downsample_mode='avg',
              need1x1_up=False,
-             need_sigmoid=True, need_bias=True, pad='reflection', act_fun='LeakyReLU').type(dtype)
-    z = torch.zeros_like(x_true).type(dtype).normal_()
+             need_sigmoid=True, need_bias=True, pad='zero', act_fun='LeakyReLU').type(dtype)
+    z = torch.zeros_like(torch.empty(Nr,2)).type(dtype).normal_()
 
     z.requires_grad = False
     opt = optim.Adam(G.parameters(), lr=GD_lr)
     
-    # Create fidelity loss function
-    def fn(x): return torch.norm(x.reshape(-1) - b) ** 2 / 2
-    
     # Record dictionary
-    record = {"psnr_gt": [],
+    record = {"mse_nuh": [],
               "mse_gt": [],
-              "total_loss": [],
-              "prior_loss": [],
-              "fidelity_loss": [],
+              "stopping_point": [],
               "cpu_time": [],
               }
 
     results = None
-    for t in range(num_iter):
-        x = G(z)
-        fidelity_loss = fn(x)
-
-        # prior_loss = (torch.sum(torch.abs(x[:, :, :, :-1] - x[:, :, :, 1:])) + torch.sum(torch.abs(x[:, :, :-1, :] - x[:, :, 1:, :])))
-        total_loss = fidelity_loss #+ 0.01 * prior_loss
-        opt.zero_grad()
-        total_loss.backward()
-        opt.step()
-
-
-        if results is None:
-            results = x.detach().cpu().numpy()
-        else:
-            results = results * 0.99 + x.detach().cpu().numpy() * 0.01
-
-        psnr_gt = peak_signal_noise_ratio(x_true.cpu().numpy(), results)
-        mse_gt = np.mean((x_true.cpu().numpy() - results) ** 2)
-        # fidelity_loss = fn(torch.tensor(results).cuda()).detach()
-
-        if (t + 1) % 1000 == 0:
-            if num_channels == 3:
-                imsave(specific_result_dir + 'iter%d_PSNR_%.2f.png'%(t, psnr_gt), results[0].transpose((1,2,0)))
+    for bs in range(batch_size):
+        for t in range(num_iter):
+            b = Y[bs]
+            # Run DIP
+            Y_hat = G(z)
+            fidelity_loss = fn(Y_hat,b)
+    
+            total_loss = fidelity_loss
+            opt.zero_grad()
+            total_loss.backward()
+            opt.step()
+    
+    
+            if results is None:
+                results = Y_hat.detach().cpu().numpy()
             else:
-                imsave(specific_result_dir + 'iter%d_PSNR_%.2f.png'%(t, psnr_gt), results[0, 0], cmap='gray')
+                results = results * 0.99 + Y_hat.detach().cpu().numpy() * 0.01
+            
+            # Measure
+            with torch.no_grad():
+                mse_nuh = np.mean((Y_hat.cpu().numpy() - b) ** 2)
+                mse_gt = np.mean((Y_hat.cpu().numpy() - results) ** 2)
+            # fidelity_loss = fn(torch.tensor(results).cuda()).detach()
+            # fidelity_loss = fn(torch.tensor(results)).detach()
+    
+            
+            # With linf_ball_projection
+            # # for x
+            # with torch.no_grad():
+            #     x = linf_proj(Gz.detach() - scaled_lambda_, b, noise_sigma)
+            #     # x = Gz.detach() - scaled_lambda_
+    
+            # # for z (GD)
+            # opt_z.zero_grad()
+            # Gz = G(z)
+            # loss_z = torch.norm(b- Gz) ** 2 / 2 + (rho / 2) * torch.norm(x - G(z) + scaled_lambda_) ** 2
+            # loss_z.backward()
+            # opt_z.step()
+    
+            # # for dual var(lambda)
+            # with torch.no_grad():
+            #     Gz = G(z).detach()
+            #     x_Gz = x - Gz
+            #     scaled_lambda_.add_(sigma_0 * x_Gz)
+    
+            # if results is None:
+            #     results = Gz.detach()
+            # else:
+            #     results = results * 0.99 + Gz.detach() * 0.01
+    
+            # psnr_gt = peak_signal_noise_ratio(x_true.cpu().numpy(), results.cpu().numpy())
+            # mse_gt = np.mean((x_true.cpu().numpy() - results.cpu().numpy()) ** 2)
+            # fidelity_loss = fn(torch.tensor(results).cuda()).detach()
+    
+            # Record the result
+            record["mse_nuh"].append(mse_nuh)
+            record["mse_gt"].append(mse_gt)
+            record["stopping_point"].append(fidelity_loss.item())
+            record["cpu_time"].append(time.time())
+            if (t + 1) % 10 == 0:
+                print('Batch %3d: Iteration %5d   MSE_nuh: %e MSE_gt: %e' % (batch_size+1, t + 1, mse_nuh, mse_gt))
+        np.savez(results_dir+'record %0.2f batch %2d' % (SNR_dB,batch_size), **record)
+
+# Create fidelity loss function
+def fn(x,b): 
+    return torch.norm(x.reshape((-1),order='F') - b) ** 2 / 2
 
 
-        record["psnr_gt"].append(psnr_gt)
-        record["mse_gt"].append(mse_gt)
-        record["fidelity_loss"].append(fidelity_loss.item())
-        record["cpu_time"].append(time.time())
-        if (t + 1) % 10 == 0:
-            print('Img %d Iteration %5d   PSRN_gt: %.2f MSE_gt: %e' % (f_num, t + 1, psnr_gt, mse_gt))
-    np.savez(specific_result_dir+'record', **record)
+# Main program
 tic = time.time()
-run()
+# Check if cuda is available or not
+if torch.cuda.is_available():
+    dtype = torch.cuda.FloatTensor
+else:
+    dtype = torch.FloatTensor
+    
+datasets_dir = './data/'
+if not os.path.isdir(datasets_dir):
+    os.makedirs(datasets_dir)
+results_dir = './data/results/'
+
+# Create SNR_dB array
+arrSNR_dB = np.linspace(0,15,4)
+for SNR_dB in arrSNR_dB:
+    if not os.path.isdir(results_dir):
+        os.makedirs(results_dir)
+    run(num_iter=10000,
+        batch_size=100, 
+        Nt=3, Nr=2, M=16,
+        GD_lr=0.001, 
+        SNR_dB=SNR_dB, 
+        results_dir = results_dir,
+        datasets_dir=datasets_dir,
+        seed=42)
 toc = time.time()
 print(f'Time spent by the system: {toc-tic}')

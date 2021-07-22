@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import os, sys
 
-def generate(batch_size, Nt, Nr, M, SNR_dB, seed='None', rootdir='./'):
+def generate(batch_size, Nt, Nr, M, SNR_dB, seed='None', rootdir=None,save=False):
     
     # Look at the seed value
     if seed != 'None':
@@ -27,14 +27,22 @@ def generate(batch_size, Nt, Nr, M, SNR_dB, seed='None', rootdir='./'):
     
     # Generate Noise
     sigma2 =  (2 * Nt) / (np.power(10, SNR_dB/10) * (2*Nr))
-    noise = np.sqrt(sigma2 / 2) * rng.randn(batch_size, 2*Nr)
+    noise = np.sqrt(sigma2 / 2) * rng.randn(batch_size, 2*Nr,1)
     
     # Generate Y (y in real-equivalent domain)
     Y = np.matmul(H,X) + noise
     
+    if save == False:
+        return (X, Y, H)
+    
+    if rootdir == None:
+        rootdir = './data/'
+        if not os.path.isdir(rootdir):
+            os.makedirs(rootdir)
+    
     # Saving those matrices to help debugging later
     for fname in ['matX','matY','matH']:
-        writer = pd.ExcelWriter('%s_%0.2f.xlsx' % (fname, SNR_dB), engine='xlsxwriter')
+        writer = pd.ExcelWriter(rootdir + '%s_%0.2f.xlsx' % (fname, SNR_dB), engine='xlsxwriter')
     
         if fname == 'matX':
             data = X
