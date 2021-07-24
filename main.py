@@ -21,6 +21,9 @@ def run(num_iter=100000, batch_size=100,
         b_numpy = Y[bs].reshape((1,1,-1,2),order='F')
         b = torch.from_numpy(b_numpy).reshape(-1)
         
+        Ht = H[bs].transpose(1,0)
+        Hinv = np.dot(np.linalg.inv(np.dot(Ht, H[bs])), Ht)
+        
         # Create model G and random noise input z
         G = skip(1, 1,
                  num_channels_down=[2, 4, 8, 16, 16],
@@ -39,7 +42,6 @@ def run(num_iter=100000, batch_size=100,
         record = {"mse_nuh": [],
                   "mse_gt": [],
                   "fidelity_loss": [],
-                  "stopping_point": [],
                   "cpu_time": [],
                   }
     
@@ -56,54 +58,34 @@ def run(num_iter=100000, batch_size=100,
     
     
             if results is None:
-                results = Y_hat.detach().cpu().numpy()
+                results = Y_hat.detach().numpy().reshape(-1, order='F')
             else:
-                results = results * 0.99 + Y_hat.detach().cpu().numpy() * 0.01
+                results = results * 0.99 + Y_hat.detach().numpy().reshape(-1, order='F') * 0.01
+            Y_hat_numpy = Y_hat.detach().numpy().reshape(-1, order='F')
             
             # Measure
-            mse_nuh = np.mean((Y_hat.detach().cpu().numpy() - b_numpy) ** 2)
-            mse_gt = np.mean((b_numpy - results) ** 2)
+            X_hat = np.dot(Hinv,Y_hat_numpy)
+            X_hat_result = np.dot(Hinv, results)
+            
+            mse_nuh = np.mean((X_hat - X[bs]) ** 2)
+            mse_gt = np.mean((X_hat_results - X[bs]) ** 2)
             # fidelity_loss = fn(torch.tensor(results).cuda()).detach()
             # fidelity_loss = fn(torch.tensor(results)).detach()
-    
-            
-            # With linf_ball_projection
-            # # for x
-            # with torch.no_grad():
-            #     x = linf_proj(Gz.detach() - scaled_lambda_, b, noise_sigma)
-            #     # x = Gz.detach() - scaled_lambda_
-    
-            # # for z (GD)
-            # opt_z.zero_grad()
-            # Gz = G(z)
-            # loss_z = torch.norm(b- Gz) ** 2 / 2 + (rho / 2) * torch.norm(x - G(z) + scaled_lambda_) ** 2
-            # loss_z.backward()
-            # opt_z.step()
-    
-            # # for dual var(lambda)
-            # with torch.no_grad():
-            #     Gz = G(z).detach()
-            #     x_Gz = x - Gz
-            #     scaled_lambda_.add_(sigma_0 * x_Gz)
-    
-            # if results is None:
-            #     results = Gz.detach()
-            # else:
-            #     results = results * 0.99 + Gz.detach() * 0.01
-    
-            # psnr_gt = peak_signal_noise_ratio(x_true.cpu().numpy(), results.cpu().numpy())
-            # mse_gt = np.mean((x_true.cpu().numpy() - results.cpu().numpy()) ** 2)
-            # fidelity_loss = fn(torch.tensor(results).cuda()).detach()
     
             # Record the result
             record["mse_nuh"].append(mse_nuh)
             record["mse_gt"].append(mse_gt)
             record["fidelity_loss"].append(fidelity_loss.item())
-            record["stopping_point"].append(t)
             record["cpu_time"].append(time.time())
             if (t + 1) % 100 == 0:
                 print('Batch %3d: Iteration %5d   MSE_nuh: %e MSE_gt: %e' % (bs+1, t + 1, mse_nuh, mse_gt))
-        np.savez(results_dir+'record %0.2f batch %2d' % (SNR_dB,batch_size), **record)
+        # Looking its best stopping point
+        minvalue_nuh = min(record["mse_nuh"])
+        minvalue_gt = min(record["mse_gt"])
+        bsp_nuh = record["mse_nuh"].index(minvalue_nuh)
+        bsp_gt = record["mse_gt"].index(minvalue_gt)
+        # Save the process
+        np.savez(results_dir+'record %0.2f batch %2d BSP(%d, %d) value(%e, %e)' % (SNR_dB,batch_size,bsp_nuh,bsp_gt,minvalue_nuh,minvalue_gt), **record)
 
 # Create fidelity loss function
 def fn(x,b): 
@@ -124,12 +106,12 @@ if not os.path.isdir(datasets_dir):
 results_dir = './data/results/'
 
 # Create SNR_dB array
-arrSNR_dB = np.linspace(0,15,4)
+arrSNR_dB = np.linspace(0,30,3)
 for SNR_dB in arrSNR_dB:
     if not os.path.isdir(results_dir):
         os.makedirs(results_dir)
     run(num_iter=100000,
-        batch_size=100, 
+        batch_size=10, 
         Nt=8, Nr=8, M=16,
         GD_lr=0.001, 
         SNR_dB=SNR_dB, 

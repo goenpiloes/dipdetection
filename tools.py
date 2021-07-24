@@ -65,4 +65,5 @@ def normsymbol(x, L):
     constellation = np.linspace(int(-L+1), int(L-1), int(L))
     alpha = np.sqrt((constellation ** 2).mean())
     x /= (alpha * np.sqrt(2))
+    
     return x
