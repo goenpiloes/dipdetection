@@ -10,11 +10,11 @@
 ## Checklist of tools.py
 - [x] function transmit: generate a modulated symbols
 - [x] function receive: return the symbols that has been added by gaussian noise
-- [ ] function SER: Compare it with true x
-- [ ] Need more functions?
-- [ ] Debugging
+- [x] function SER: Compare it with true x
+- [x] Need more functions?
+- [x] Debugging
 
 ## Checklist of model.py
-- [ ] Define the NN architecture
-- [ ] Modify the reference code
+- [x] Define the NN architecture
+- [x] Modify the reference code
 - [ ] Debugging
