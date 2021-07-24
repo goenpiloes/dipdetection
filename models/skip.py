@@ -61,7 +61,7 @@ def skip(
 
         # skip.add(Concat(2, GenNoise(nums_noise[i]), skip_part))
 
-        deeper.add(conv(input_depth, num_channels_down[i], filter_size_down[i], 2, bias=need_bias, pad=pad, downsample_mode=downsample_mode[i]))
+        deeper.add(conv(input_depth, num_channels_down[i], filter_size_down[i], 1, bias=need_bias, pad=pad, downsample_mode=downsample_mode[i]))
         deeper.add(bn(num_channels_down[i]))
         deeper.add(act(act_fun))
 
@@ -78,7 +78,7 @@ def skip(
             deeper.add(deeper_main)
             k = num_channels_up[i + 1]
 
-        deeper.add(nn.Upsample(scale_factor=2, mode=upsample_mode[i]))
+        deeper.add(nn.Upsample(scale_factor=1, mode=upsample_mode[i]))
 
         model_tmp.add(conv(num_channels_skip[i] + k, num_channels_up[i], filter_size_up[i], 1, bias=need_bias, pad=pad))
         model_tmp.add(bn(num_channels_up[i]))

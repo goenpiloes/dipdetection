@@ -1,4 +1,4 @@
-import os, sys, glob
+import os
 from tools import *
 import numpy as np
 import torch
@@ -17,31 +17,34 @@ def run(num_iter=100000, batch_size=100,
     (X, Y, H) = generate(batch_size, Nt, Nr, M, SNR_dB, seed, rootdir=datasets_dir, save=savedataset)
     # (X, Y, H) = pd.read_excel('users.xlsx', sheet_name = [0,1,2])
 
-    # Create model G and random noise input z
-    G = skip(1, 1,
-             num_channels_down=[2],
-             num_channels_up=[2],#[16, 32, 64, 128, 128],
-             num_channels_skip=[0],
-             filter_size_up=2, filter_size_down=2, filter_skip_size=1,
-             upsample_mode='nearest',  # downsample_mode='avg',
-             need1x1_up=False,
-             need_sigmoid=True, need_bias=True, pad='reflection', act_fun='LeakyReLU').type(dtype)
-    z = torch.zeros_like(torch.empty(1,1,Nr,2)).type(dtype).normal_()
-
-    z.requires_grad = False
-    opt = optim.Adam(G.parameters(), lr=GD_lr)
-    
-    # Record dictionary
-    record = {"mse_nuh": [],
-              "mse_gt": [],
-              "stopping_point": [],
-              "cpu_time": [],
-              }
-
-    results = None
     for bs in range(batch_size):
+        b_numpy = Y[bs].reshape((1,1,-1,2),order='F')
+        b = torch.from_numpy(b_numpy).reshape(-1)
+        
+        # Create model G and random noise input z
+        G = skip(1, 1,
+                 num_channels_down=[2, 4, 8, 16, 16],
+                 num_channels_up=[2, 4, 8, 16, 16],#[16, 32, 64, 128, 128],
+                 num_channels_skip=[0, 0, 0, 0, 0],
+                 filter_size_up=3, filter_size_down=3, filter_skip_size=1,
+                 upsample_mode='nearest',  # downsample_mode='avg',
+                 need1x1_up=False,
+                 need_sigmoid=True, need_bias=True, pad='zero', act_fun='LeakyReLU').type(dtype)
+        z = torch.zeros_like(torch.empty(1,1,Nr,2)).type(dtype).normal_()
+    
+        z.requires_grad = False
+        opt = optim.Adam(G.parameters(), lr=GD_lr)
+        
+        # Record dictionary
+        record = {"mse_nuh": [],
+                  "mse_gt": [],
+                  "fidelity_loss": [],
+                  "stopping_point": [],
+                  "cpu_time": [],
+                  }
+    
+        results = None
         for t in range(num_iter):
-            b = Y[bs]
             # Run DIP
             Y_hat = G(z)
             fidelity_loss = fn(Y_hat,b)
@@ -58,9 +61,8 @@ def run(num_iter=100000, batch_size=100,
                 results = results * 0.99 + Y_hat.detach().cpu().numpy() * 0.01
             
             # Measure
-            with torch.no_grad():
-                mse_nuh = np.mean((Y_hat.cpu().numpy() - b) ** 2)
-                mse_gt = np.mean((Y_hat.cpu().numpy() - results) ** 2)
+            mse_nuh = np.mean((Y_hat.detach().cpu().numpy() - b_numpy) ** 2)
+            mse_gt = np.mean((b_numpy - results) ** 2)
             # fidelity_loss = fn(torch.tensor(results).cuda()).detach()
             # fidelity_loss = fn(torch.tensor(results)).detach()
     
@@ -96,15 +98,16 @@ def run(num_iter=100000, batch_size=100,
             # Record the result
             record["mse_nuh"].append(mse_nuh)
             record["mse_gt"].append(mse_gt)
-            record["stopping_point"].append(fidelity_loss.item())
+            record["fidelity_loss"].append(fidelity_loss.item())
+            record["stopping_point"].append(t)
             record["cpu_time"].append(time.time())
-            if (t + 1) % 10 == 0:
-                print('Batch %3d: Iteration %5d   MSE_nuh: %e MSE_gt: %e' % (batch_size+1, t + 1, mse_nuh, mse_gt))
+            if (t + 1) % 100 == 0:
+                print('Batch %3d: Iteration %5d   MSE_nuh: %e MSE_gt: %e' % (bs+1, t + 1, mse_nuh, mse_gt))
         np.savez(results_dir+'record %0.2f batch %2d' % (SNR_dB,batch_size), **record)
 
 # Create fidelity loss function
 def fn(x,b): 
-    return torch.norm(x.reshape((-1),order='F') - b) ** 2 / 2
+    return torch.norm(x.reshape(-1) - b) ** 2 / 2
 
 
 # Main program
@@ -125,7 +128,7 @@ arrSNR_dB = np.linspace(0,15,4)
 for SNR_dB in arrSNR_dB:
     if not os.path.isdir(results_dir):
         os.makedirs(results_dir)
-    run(num_iter=10000,
+    run(num_iter=100000,
         batch_size=100, 
         Nt=8, Nr=8, M=16,
         GD_lr=0.001, 

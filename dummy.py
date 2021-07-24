@@ -8,7 +8,7 @@ Created on Tue Jul 20 13:28:17 2021
 
 import numpy as np
 
-x = np.random.randn(4,5)
+x = np.random.randn(1,4)
 print(f'x = \n {x}')
-x1 = x.reshape((-1,),order='F')
+x1 = x.reshape((-1,2),order='F')
 print(f'x1 = \n {x1}')
