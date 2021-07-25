@@ -3,6 +3,7 @@ from tools import *
 import numpy as np
 import torch
 from torch import optim
+import matplotlib.pyplot as plt
 import time
 from models import *
 torch.backends.cudnn.enabled = True
@@ -26,9 +27,9 @@ def run(num_iter=100000, batch_size=100,
         
         # Create model G and random noise input z
         G = skip(1, 1,
-                 num_channels_down=[2, 4, 8, 16, 16],
-                 num_channels_up=[2, 4, 8, 16, 16],#[16, 32, 64, 128, 128],
-                 num_channels_skip=[0, 0, 0, 0, 0],
+                 num_channels_down=[2, 4, 4, 8],
+                 num_channels_up=[2, 4, 4, 8],#[16, 32, 64, 128, 128],
+                 num_channels_skip=[0, 0, 0, 0],
                  filter_size_up=3, filter_size_down=3, filter_skip_size=1,
                  upsample_mode='nearest',  # downsample_mode='avg',
                  need1x1_up=False,
@@ -43,6 +44,7 @@ def run(num_iter=100000, batch_size=100,
                   "mse_gt": [],
                   "fidelity_loss": [],
                   "cpu_time": [],
+                  "SER": []
                   }
     
         results = None
@@ -58,17 +60,18 @@ def run(num_iter=100000, batch_size=100,
     
     
             if results is None:
-                results = Y_hat.detach().numpy().reshape(-1, order='F')
+                results = Y_hat.detach().numpy().reshape((-1,1), order='F')
             else:
-                results = results * 0.99 + Y_hat.detach().numpy().reshape(-1, order='F') * 0.01
-            Y_hat_numpy = Y_hat.detach().numpy().reshape(-1, order='F')
+                results = results * 0.99 + Y_hat.detach().numpy().reshape((-1,1), order='F') * 0.01
+            Y_hat_numpy = Y_hat.detach().numpy().reshape((-1,1), order='F')
             
             # Measure
             X_hat = np.dot(Hinv,Y_hat_numpy)
-            X_hat_result = np.dot(Hinv, results)
+            X_hat_results = np.dot(Hinv, results)
             
             mse_nuh = np.mean((X_hat - X[bs]) ** 2)
             mse_gt = np.mean((X_hat_results - X[bs]) ** 2)
+            ser = CalcSER(X[bs], X_hat, M)
             # fidelity_loss = fn(torch.tensor(results).cuda()).detach()
             # fidelity_loss = fn(torch.tensor(results)).detach()
     
@@ -76,16 +79,24 @@ def run(num_iter=100000, batch_size=100,
             record["mse_nuh"].append(mse_nuh)
             record["mse_gt"].append(mse_gt)
             record["fidelity_loss"].append(fidelity_loss.item())
+            record["SER"].append(ser)
             record["cpu_time"].append(time.time())
             if (t + 1) % 100 == 0:
-                print('Batch %3d: Iteration %5d   MSE_nuh: %e MSE_gt: %e' % (bs+1, t + 1, mse_nuh, mse_gt))
+                print('Batch %3d: Iter %5d   MSE_nuh: %e MSE_gt: %e  SER: %e' % (bs+1, t + 1, mse_nuh, mse_gt, ser))
         # Looking its best stopping point
         minvalue_nuh = min(record["mse_nuh"])
         minvalue_gt = min(record["mse_gt"])
         bsp_nuh = record["mse_nuh"].index(minvalue_nuh)
         bsp_gt = record["mse_gt"].index(minvalue_gt)
+        optimser_nuh = record["SER"][bsp_nuh]
+        optimser_gt = record["SER"][bsp_gt]
+        
         # Save the process
-        np.savez(results_dir+'record %0.2f batch %2d BSP(%d, %d) value(%e, %e)' % (SNR_dB,batch_size,bsp_nuh,bsp_gt,minvalue_nuh,minvalue_gt), **record)
+        np.savez(results_dir+'record %0.2f batch %2d BSP(%d, %d) value(%e, %e) SER(%e, %e)' % (SNR_dB,bs,
+                                                                                               bsp_nuh,bsp_gt,
+                                                                                               minvalue_nuh,minvalue_gt,
+                                                                                               optimser_nuh,optimser_gt), **record)
+        plt.plot(np.arange(50000),record["SER"])
 
 # Create fidelity loss function
 def fn(x,b): 
@@ -110,9 +121,9 @@ arrSNR_dB = np.linspace(0,30,3)
 for SNR_dB in arrSNR_dB:
     if not os.path.isdir(results_dir):
         os.makedirs(results_dir)
-    run(num_iter=100000,
+    run(num_iter=50000,
         batch_size=10, 
-        Nt=8, Nr=8, M=16,
+        Nt=8, Nr=8, M=4,
         GD_lr=0.001, 
         SNR_dB=SNR_dB, 
         results_dir = results_dir,

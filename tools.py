@@ -67,3 +67,28 @@ def normsymbol(x, L):
     x /= (alpha * np.sqrt(2))
     
     return x
+
+def CalcSER(xtrue, xhat, M):
+    L = int(np.sqrt(M))
+    
+    # Make reference constellation points
+    cons = np.array([[i for i in range(-L+1, L, 2)]],dtype=float)
+    cons = normsymbol(cons, L)
+    
+    # Calculate errors of yhat
+    errors = abs(xhat - cons)**2
+    xhat_idx = errors.argmin(axis=1)
+    xhat_idx = xhat_idx.reshape((-1,1))
+    
+    # Calculate the bit of ytrue
+    lookzero = abs(xtrue - cons)**2
+    xtrue_idx = lookzero.argmin(axis=1)
+    xtrue_idx = xtrue_idx.reshape((-1,1))
+    
+    # Error Calculation
+    error = np.array([])
+    for i in range(xtrue.shape[0]):
+        error = np.append(error, np.sum(np.not_equal(xtrue_idx[i], xhat_idx[i])))
+    
+    # SER Calculation
+    return np.mean(error)*2/xtrue.shape[0]
