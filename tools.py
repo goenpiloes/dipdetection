@@ -58,6 +58,7 @@ def generate(batch_size, Nt, Nr, M, SNR_dB, seed='None', rootdir=None,save=False
             df.to_excel(writer, sheet_name='iter_%d' % i)
 
         writer.save()
+        writer.close()
     
     return (X, Y, H)
 
@@ -85,10 +86,12 @@ def CalcSER(xtrue, xhat, M):
     xtrue_idx = lookzero.argmin(axis=1)
     xtrue_idx = xtrue_idx.reshape((-1,1))
     
-    # Error Calculation
-    error = np.array([])
-    for i in range(xtrue.shape[0]):
-        error = np.append(error, np.sum(np.not_equal(xtrue_idx[i], xhat_idx[i])))
-    
     # SER Calculation
-    return np.mean(error)*2/xtrue.shape[0]
+    return np.mean(np.not_equal(xtrue_idx, xhat_idx))
+
+def SaveRecord(d, writer, batch, SNR_dB, bsp_nuh, bsp_gt):
+    df = pd.DataFrame(d)
+    df.to_excel(writer, sheet_name='batch_%d BSP(%d, %d)' % (batch+1, bsp_nuh, bsp_gt))
+    
+    return writer
+    

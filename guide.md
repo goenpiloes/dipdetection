@@ -10,7 +10,7 @@
 ## Checklist of tools.py
 - [x] function transmit: generate a modulated symbols
 - [x] function receive: return the symbols that has been added by gaussian noise
-- [x] function SER: Compare it with true x
+- [x] function error calculation: Compare it with true x (MSE and SER)
 - [x] Need more functions?
 - [x] Debugging
 
