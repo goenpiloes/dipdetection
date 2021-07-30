@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import os, sys
 
-def generate(batch_size, Nt, Nr, M, SNR_dB, seed='None', rootdir=None,save=False):
+def generate(trial_size, Nt, Nr, M, SNR_dB, seed='None', rootdir=None,save=False):
     
     # Look at the seed value
     if seed != 'None':
@@ -10,24 +10,24 @@ def generate(batch_size, Nt, Nr, M, SNR_dB, seed='None', rootdir=None,save=False
     else:
         rng = np.random.RandomState()
     # Generate H matrix real-equivalent domain
-    Hr = rng.randn(batch_size,Nr,Nt) * np.sqrt(0.5/Nr)
-    Hi = rng.randn(batch_size,Nr,Nt) * np.sqrt(0.5/Nr)
+    Hr = rng.randn(trial_size,Nr,Nt) * np.sqrt(0.5/Nr)
+    Hi = rng.randn(trial_size,Nr,Nt) * np.sqrt(0.5/Nr)
     # H = [[Hr -Hi],
     #      [Hi  Hr]]
     H = np.concatenate([np.concatenate([Hr, -Hi], axis=2), np.concatenate([Hi, Hr], axis=2)], axis=1)
     
     # Generate X (x in real-equivalent domain)
     L = np.int(np.sqrt(M))
-    x = rng.randint(low=0,high=L,size=(batch_size,Nt)) + 1j*rng.randint(low=0,high=L,size=(batch_size,Nt))
+    x = rng.randint(low=0,high=L,size=(trial_size,Nt)) + 1j*rng.randint(low=0,high=L,size=(trial_size,Nt))
     x = x*2-(1+1j)*(L-1)
     x = normsymbol(x, L)
     # change the x to real-equivalent domain
     X = np.concatenate((x.real, x.imag), axis=1)
-    X = np.reshape(X,(batch_size,-1,1))
+    X = np.reshape(X,(trial_size,-1,1))
     
     # Generate Noise
     sigma2 =  (2 * Nt) / (np.power(10, SNR_dB/10) * (2*Nr))
-    noise = np.sqrt(sigma2 / 2) * rng.randn(batch_size, 2*Nr,1)
+    noise = np.sqrt(sigma2 / 2) * rng.randn(trial_size, 2*Nr,1)
     
     # Generate Y (y in real-equivalent domain)
     Y = np.matmul(H,X) + noise
@@ -55,10 +55,9 @@ def generate(batch_size, Nt, Nr, M, SNR_dB, seed='None', rootdir=None,save=False
 
         for i in range(0, data.shape[0]):
             df = pd.DataFrame(data[i,:,:])
-            df.to_excel(writer, sheet_name='iter_%d' % i)
+            df.to_excel(writer, sheet_name='iter_%d' % (i+1))
 
         writer.save()
-        writer.close()
     
     return (X, Y, H)
 
@@ -77,7 +76,7 @@ def CalcSER(xtrue, xhat, M):
     cons = normsymbol(cons, L)
     
     # Calculate errors of yhat
-    errors = abs(xhat - cons)**2
+    errors = np.abs(xhat - cons)**2
     xhat_idx = errors.argmin(axis=1)
     xhat_idx = xhat_idx.reshape((-1,1))
     
@@ -89,9 +88,9 @@ def CalcSER(xtrue, xhat, M):
     # SER Calculation
     return np.mean(np.not_equal(xtrue_idx, xhat_idx))
 
-def SaveRecord(d, writer, batch, SNR_dB, bsp_nuh, bsp_gt):
+def SaveRecord(d, writer, trial, SNR_dB, bsp_nuh, bsp_gt):
     df = pd.DataFrame(d)
-    df.to_excel(writer, sheet_name='batch_%d BSP(%d, %d)' % (batch+1, bsp_nuh, bsp_gt))
+    df.to_excel(writer, sheet_name='trial_%d BSP(%d, %d)' % (trial+1, bsp_nuh, bsp_gt))
     
     return writer
     

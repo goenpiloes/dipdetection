@@ -1,0 +1,1 @@
+The SER of SNR_dB = 15 is 0.18125 dB.
