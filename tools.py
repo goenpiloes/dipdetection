@@ -1,9 +1,41 @@
 import numpy as np
 import pandas as pd
-import os, sys
+import os
 
 def generate(trial_size, Nt, Nr, M, SNR_dB, seed='None', rootdir=None,save=False):
-    
+    '''
+
+    Parameters
+    ----------
+    trial_size : int
+        number of simulations performed in a single SNR value.
+    Nt : int
+        number of transmitter antennas.
+    Nr : int
+        number of receiver antennas .
+    M : int
+        Modulation orde.
+    SNR_dB : float
+        signal-to-noise (SNR) value in dB.
+    seed : int, optional
+        initialize a pseudorandom number generator. The default is 'None'.
+    rootdir : string, optional
+        path to save the X, Y, H dataset. The default is None.
+    save : bool, optional
+        save the dataset. The default is False.
+
+    Returns
+    -------
+    X : numpy array of float
+        transmitted symbols in real-equivalent domain.
+    Y : numpy array of float
+        received symbols in real-equivalent domain.
+    H : numpy array of float
+        rayleigh channel in real-equivalent domain.
+    noisevar : float
+        noise variance.
+
+    '''
     # Look at the seed value
     if seed != 'None':
         rng = np.random.RandomState(seed)
@@ -33,7 +65,7 @@ def generate(trial_size, Nt, Nr, M, SNR_dB, seed='None', rootdir=None,save=False
     Y = np.matmul(H,X) + noise
     
     if save == False:
-        return (X, Y, H)
+        return (X, Y, H, sigma2/2)
     
     if rootdir == None:
         rootdir = './data/'
@@ -59,9 +91,24 @@ def generate(trial_size, Nt, Nr, M, SNR_dB, seed='None', rootdir=None,save=False
 
         writer.save()
     
-    return (X, Y, H)
+    return (X, Y, H, sigma2/2)
 
 def normsymbol(x, L):
+    '''
+
+    Parameters
+    ----------
+    x : numpy array of float
+        unnormalized symbols.
+    L : int
+        length of its constellation diagram. L is equal to square root of modulation orde M (L = sqrt(M)).
+
+    Returns
+    -------
+    x : numpy array of float
+        normalized symbols.
+
+    '''
     constellation = np.linspace(int(-L+1), int(L-1), int(L))
     alpha = np.sqrt((constellation ** 2).mean())
     x /= (alpha * np.sqrt(2))
@@ -69,6 +116,25 @@ def normsymbol(x, L):
     return x
 
 def CalcSER(xtrue, xhat, M):
+    '''
+
+    Parameters
+    ----------
+    xtrue : numpy array of float
+        estimated symbols in real-equivalent domain.
+    xhat : numpy array of float
+        true symbols in real-equivalent domain.
+    M : int
+        modulation orde.
+
+    Returns
+    -------
+    BER : float
+        Bit error rate (BER).
+
+    '''
+    xtrue = xtrue.reshape((-1,1))
+    xhat = xhat.reshape((-1,1))
     L = int(np.sqrt(M))
     
     # Make reference constellation points
@@ -88,9 +154,27 @@ def CalcSER(xtrue, xhat, M):
     # SER Calculation
     return np.mean(np.not_equal(xtrue_idx, xhat_idx))
 
-def SaveRecord(d, writer, trial, SNR_dB, bsp_nuh, bsp_gt):
+def SaveRecord(d, writer, trial, t=0):
+    '''
+
+    Parameters
+    ----------
+    d : TYPE
+        DESCRIPTION.
+    writer : TYPE
+        DESCRIPTION.
+    trial : TYPE
+        DESCRIPTION.
+    t : TYPE, optional
+        DESCRIPTION. The default is 0.
+
+    Returns
+    -------
+    writer : TYPE
+        DESCRIPTION.
+
+    '''
     df = pd.DataFrame(d)
-    df.to_excel(writer, sheet_name='trial_%d BSP(%d, %d)' % (trial+1, bsp_nuh, bsp_gt))
+    df.to_excel(writer, sheet_name='trial_%d best iter = %d' % (trial+1,t))
     
     return writer
-    

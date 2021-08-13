@@ -1,20 +1,24 @@
-# Checklist for building code of OTFS detection using DIP
+# __GUIDE TO USE THIS CODE__
 
-## Checklist of main.py
-- [x] Generate transmit symbol with desired size
-- [x] Call functions/classes from txrx.py without trouble
-- [x] Call functions/classes from tools.py without trouble
-- [x] function run: run the DIP algorithm to detect the symbols
-- [ ] Debugging
+## __TABLE OF CONTENTS__
+- [__GUIDE TO USE THIS CODE__](#guide-to-use-this-code)
+  - [__TABLE OF CONTENTS__](#table-of-contents)
+  - [__REQUIREMENTS__](#requirements)
+  - [__HOW TO USE__](#how-to-use)
+  - [__ADDITIONAL INFORMATION__](#additional-information)
 
-## Checklist of tools.py
-- [x] function transmit: generate a modulated symbols
-- [x] function receive: return the symbols that has been added by gaussian noise
-- [x] function error calculation: Compare it with true x (MSE and SER)
-- [x] Need more functions?
-- [x] Debugging
+## __REQUIREMENTS__
+- python >= 3.7
+- torch
+- numpy
+- pandas
+- xlsxwriter and openpyxl (to save the result and generated dataset in .xlsx format)
 
-## Checklist of model.py
-- [x] Define the NN architecture
-- [x] Modify the reference code
-- [ ] Debugging
+## __HOW TO USE__
+There are some main program (the file name starts with `main`) where each file has a slight different approach to detect symbols. But, those files were built based on DIP algorithm. The detailed approach is described in the following file. You can run those files to get the results.
+
+The results will be stored at directory `data`. The matrices will be stored in `.xlsx` format and SER calculations will be saved in `.txt` file.
+
+## __ADDITIONAL INFORMATION__
+- Model code is stored in directory `models`
+- This github is still being developed
