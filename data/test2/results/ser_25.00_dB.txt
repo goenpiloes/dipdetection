@@ -1,0 +1,1 @@
+The SER of SNR_dB = 25 dB is 0.00025.

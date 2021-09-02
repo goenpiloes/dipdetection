@@ -1,0 +1,1 @@
+The SER of SNR_dB = 30 dB is 0.002395833333333333.
