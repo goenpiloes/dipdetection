@@ -20,5 +20,6 @@ There are some main program (the file name starts with `main`) where each file h
 The results will be stored at directory `data`. The matrices will be stored in `.xlsx` format and SER calculations will be saved in `.txt` file.
 
 ## __ADDITIONAL INFORMATION__
-- Model code is stored in directory `models`
+- Model code is stored in directory `models` -> only for main_old. The other main program doesn't use functions in model directory
 - This github is still being developed
+- Feel free to modify the code to get more informations

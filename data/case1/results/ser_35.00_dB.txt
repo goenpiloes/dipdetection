@@ -1,1 +1,0 @@
-The SER of SNR_dB = 35 dB is 0.00225.

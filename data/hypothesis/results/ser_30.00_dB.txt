@@ -1,2 +1,0 @@
-The SER of SNR_dB = 30 dB is 0.004375.
-         minimum mean distance error between mse yhat-y and noise variance = 0.00015330288264135257.

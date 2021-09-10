@@ -1,1 +1,0 @@
-The SER of SNR_dB = 0 dB is 0.223125.
