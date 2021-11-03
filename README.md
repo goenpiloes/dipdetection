@@ -21,5 +21,6 @@ The results will be stored at directory `data`. The matrices will be stored in `
 
 ## __ADDITIONAL INFORMATION__
 - Model code is stored in directory `models` -> only for main_old. The other main program doesn't use functions in model directory
+- The model in main_old program didn't do downsampling and upsampling. If you want to modify it, please modify `skip.py` in directory `models`
 - This github is still being developed
 - Feel free to modify the code to get more informations
